@@ -1,78 +1,75 @@
 #include "led.h"
-#include <Adafruit_MCP23X17.h>
-
-// uncomment appropriate line
-Adafruit_MCP23X17 mcp;
-TwoWire Wire2;
+#include "controller.h"
+#include <Arduino.h>
 
 unsigned long lastLoopMicros;
+int frameCount = 0;
+unsigned long lastFrameDump = 0;
 
-const int DELAY_MICRO = 1;
-const int LOOP_EVERY_MICROS = 10;
+const int DELAY_MICRO = 5000;
+const int LOOP_EVERY_MICROS = 10000;
 
-Led red(0);
-Led green(1);
-Led blue(2);
+Led leds[] = {
+    Led(0, 1, 2),
+    Led(3, 4, 5),
+    Led(6, 7, 8),
+    Led(9, 10, 11),
+    Led(12, 13, 14),
+};
 
-bool pinState[16];
-
-void setupMCP() {
-  Wire2.begin(2, 0);
-  Wire2.setClock(400000);
-
-  if (!mcp.begin_I2C(0x20, &Wire2)) {
-    Serial.println("Error!");
-    while (1);
-  }
-
-  for (int i=8; i<15; i++) {
-    mcp.pinMode(i, INPUT);
-    pinState[i] = false;
-  }
-}
-
-void setup() {
+void setup()
+{
   Serial.begin(9600);
-  while (!Serial);
+  while (!Serial)
+    ;
   Serial.println("Starting.");
 
-  // setupMCP();
-  Led::setup();
+  setupController();
+  setupLed();
 
-  green.mLightness = LIGHTNESS_MAX * 2 / 3;
-  blue.mLightness = LIGHTNESS_MAX * 2 / 3;
-  blue.mDelta *= -1;
+  for (int i = 0; i < 5; i++)
+  {
+    leds[i].mHue = LED_HUE_WIDTH * i;
+  }
 
   Serial.println("Looping...");
   lastLoopMicros = micros();
+  lastFrameDump = lastLoopMicros;
 }
 
-void loop() {
-  // int currentTime = micros();
-  // int elapsedTime = currentTime - lastLoopMicros;
-  // if (elapsedTime < LOOP_EVERY_MICROS) {
-  //   // Serial.print("low pass");
-  //   // Serial.println(elapsedTime);
-  //   // return;
-  // }
-  // lastLoopMicros += LOOP_EVERY_MICROS;
+void showFPS(int currentTime)
+{
+  frameCount++;
+  if (currentTime - lastFrameDump > 1000 * 1000)
+  {
+    lastFrameDump = currentTime;
+    Serial.printf("FPS: %d\n", frameCount);
+    frameCount = 0;
+  }
+}
 
-  red.update();
-  green.update();
-  blue.update();
+void loop()
+{
+  int currentTime = micros();
+  int elapsedTime = currentTime - lastLoopMicros;
+  if (elapsedTime < LOOP_EVERY_MICROS)
+  {
+    return;
+  }
+  lastLoopMicros += LOOP_EVERY_MICROS;
+  showFPS(currentTime);
 
-  // for (int i=8; i<15; i++) {
-  //   bool state = mcp.digitalRead(i);
-  //   if (pinState[i] != state) {
-  //     Serial.print("PIN ");
-  //     Serial.print(i);
-  //     Serial.println(state ? " 1" : " 0");
-  //     pinState[i] = state;
-  //   }
-  // }
+  for (int i = 0; i < 5; i++)
+  {
+    leds[i].mHue += 200;
+    leds[i].update();
+  }
 
+  // Serial.printf("LED1: %d %d %d\n", leds[0].mRed.mLightness, leds[0].mGreen.mLightness, leds[0].mBlue.mLightness);
+
+  
+
+  controllerLoop();
 
   // delayMicroseconds(DELAY_MICRO);
-  // Serial.print("getLastInterruptPin");
-  // Serial.println(mcp.getLastInterruptPin());
 }
